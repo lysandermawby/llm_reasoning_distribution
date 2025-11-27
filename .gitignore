@@ -1,0 +1,20 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Ruff stuff:
+.ruff_cache/
+
+# Keep .gitkeep files
+!**/.gitkeep
+
+# Ignore downloaded data files
+data_processing/*/data/*
+
+# Keep .gitkeep files to preserve directory structure
+#!data_processing/*/data/.gitkeep
