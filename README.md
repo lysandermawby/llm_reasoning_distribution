@@ -30,4 +30,10 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
+To clean-up data once it's been downloaded to free up disk space, run the `cleanup_data.sh` command.
+This will remove everything in the `/data_processing/*/data/` directories, leaving the scripts and the analysis untouched.
 
+```bash
+chmod + cleanup_data.sh
+./cleanup_data.sh
+```

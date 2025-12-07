@@ -16,5 +16,8 @@ venv/
 # Ignore downloaded data files
 data_processing/*/data/*
 
+# Ignore generated analysis files
+data_processing/*/analysis/*
+
 # Keep .gitkeep files to preserve directory structure
 #!data_processing/*/data/.gitkeep
