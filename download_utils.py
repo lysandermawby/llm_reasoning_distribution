@@ -2,31 +2,65 @@
 """Data download and processing functions"""
 
 # package imports
-from datasets import load_dataset # hf download
-from pathlib import Path
+from datasets import load_dataset, Dataset
+# from pathlib import Path
+import json
+import gc
+from tqdm import tqdm
 
-# local imports
-from dataset_config import datasets_data
-from utils import print_error
 
-def hf_dataset_download(dataset_name, save=True):
-    """downloading a dataset from huggingface and return the relevant pandas dataframe"""
-    if dataset_name not in datasets_data.keys():
-        print_error(f"Error: {dataset_name} is not in {', '.join(datasets_data.keys())}")
+def download_hf_dataset_streaming(
+    hf_repo_name, data_dir, output_filename = None, n = None, split = "train", name = None):
+    """download a HuggingFace dataset using streaming mode and save as JSONL"""
+    # Create data directory
+    data_dir.mkdir(exist_ok=True)
 
-    ds_split = datasets_data[dataset_name]
+    # set the output_filename
+    if not output_filename:
+        output_filename = hf_repo_name.split("/")[1] + ".jsonl"
 
-    if ds_split:
-        ds = load_dataset(dataset_name, split=ds_split)
+    # Download dataset
+    if not n:
+        # Download entire dataset
+        ds = load_dataset(hf_repo_name, name=name, split=split)
     else:
-        ds = load_dataset(dataset_name)
+        # Use streaming mode to download only n samples
+        ds_stream = load_dataset(
+            hf_repo_name,
+            name=name,
+            split=split,
+            streaming=True
+        )
+        # Collect n samples with progress bar
+        samples = list(tqdm(ds_stream.take(n), total=n, desc="Downloading samples"))
 
-    if save:
-        data_dir = Path("data")
-        dataset_path = data_dir / dataset_name / ".csv" # save this in a directory named after itself
-        ds.to_csv(dataset_path)
+        # Delete streaming dataset immediately to stop background threads - If deleted, resource cleanup will not occur correctly
+        del ds_stream
+        gc.collect()
 
-    # converting to a pandas dataframe
+        # Convert to regular dataset
+        ds = Dataset.from_dict({
+            key: [sample[key] for sample in samples]
+            for key in samples[0].keys()
+        }) if samples else Dataset.from_dict({})
+
+    # Convert to pandas and save as JSONL
     df = ds.to_pandas()
+    # print(df.head())
 
-    return df
+    data_path = data_dir / output_filename
+    with open(data_path, "w") as f:
+        for _, row in df.iterrows():
+            # Convert to dict and handle numpy arrays
+            row_dict = {}
+            for key, value in row.items():
+                # Convert numpy arrays to lists for JSON serialization
+                if hasattr(value, 'tolist'):
+                    row_dict[key] = value.tolist()
+                else:
+                    row_dict[key] = value
+            json.dump(row_dict, f)
+            f.write('\n')
+
+    print(f"Written {len(df.index)} entries to {data_path}")
+    return data_path

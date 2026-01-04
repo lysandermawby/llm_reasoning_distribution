@@ -19,6 +19,8 @@ We are interested in large datasets of reasoning from various different models. 
 | [SYNTHETIC-1](https://huggingface.co/datasets/PrimeIntellect/SYNTHETIC-1) | Deepseek-R1 | 26.4 GB | **Warning**: Extremely large dataset. You are advised to either partially load this, or otherwise ensure that you have the capacity available |
 | [OpenThoughts3-1.2M](https://huggingface.co/datasets/open-thoughts/OpenThoughts3-1.2M) | QwQ-32B | 28.2 GB | Contains full conversations, not just the reasoning section of the outputs |
 | [NuminaMath-Cot](https://huggingface.co/datasets/AI-MO/NuminaMath-CoT) | Humans | 1.23 GB | Mathematical problem solving, based on exam papers and online discussion forums |
+| [NuminaMath-QwQ-CoT-5M](https://huggingface.co/datasets/PrimeIntellect/NuminaMath-QwQ-CoT-5M) | QwQ | 18Gb | Mathematical problem solving and reasoning |
+| [medical-o1-reasoning-SFT](https://huggingface.co/datasets/FreedomIntelligence/medical-o1-reasoning-SFT) | GPT-4o | 247Mb | Medical situational reasoning and tests of knowledge |
 
 
 ## Quick Start
@@ -28,6 +30,14 @@ To download the relevant depedencies, run the `setup.sh` command. Note that this
 ```bash
 chmod +x setup.sh
 ./setup.sh
+```
+
+The `run.sh` script will download and process all relevant datasets.
+If you run this command with the `./run.sh -d` flag, downloaded datasets will be deleted immediately after processing is complete.
+
+```bash
+chmod +x run.sh
+./run.sh
 ```
 
 To clean-up data once it's been downloaded to free up disk space, run the `cleanup_data.sh` command.

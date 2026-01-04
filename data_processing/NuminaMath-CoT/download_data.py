@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""downloading the SYNTHETIC-1 dataset"""
+"""downloading the NuminaMath-CoT dataset"""
+
+# Disable HuggingFace's background processes and caching to ensure clean exit
+import os
+os.environ['HF_DATASETS_OFFLINE'] = '0'  # Allow downloads but don't cache aggressively
+os.environ['HF_HUB_DISABLE_TELEMETRY'] = '1'  # Disable telemetry
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'  # Disable tokenizer parallelism
 
 # package imports
 import sys
@@ -17,9 +23,9 @@ import download_utils
 @click.option('-n', '--number', type=int, help='number of samples to download', default=100000)
 @click.option('-a', '--download-all', 'download_all', is_flag=True, default=False, help='download all samples')
 def main(number, download_all):
-    """download SYNTHETIC-1 dataset from HuggingFace"""
+    """download AI-MO/NuminaMath-CoT dataset from HuggingFace"""
 
-    # Validate mutually exclusive options
+    # Set number to None if downloading all samples
     if download_all:
         number = None
 
@@ -30,11 +36,15 @@ def main(number, download_all):
         click.echo(f"Downloading {number} samples...")
 
     download_utils.download_hf_dataset_streaming(
-        hf_repo_name="PrimeIntellect/SYNTHETIC-1",
-        output_filename="SYNTHETIC-1.jsonl",
+        hf_repo_name="AI-MO/NuminaMath-CoT",
+        output_filename="NuminaMath-CoT.jsonl",
         data_dir=Path("data"),
         n=number
     )
+
+    # Force immediate exit - os._exit() doesn't wait for background threads
+    # This is safe here because all data is saved and file is closed
+    os._exit(0)
 
 
 if __name__ == '__main__':
