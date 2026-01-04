@@ -294,46 +294,24 @@ def find_first_below(sorted_list: List, threshold: float) -> int:
     return result
 
 
-def calculate_powerlaw_coefficients(think_counts: List[int], reg_counts: List[int], cutoff_frac: Optional[float] = 100):
+def calculate_powerlaw_coefficients(think_counts: List[int], reg_counts: List[int]):
     """Calculate powerlaw coefficients for thinking and regular text counts
+
+    This function fits powerlaw curves to the FULL dataset (no cutoff applied).
+    Cutoffs are only applied during plotting for readability.
 
     Args:
         think_counts: Sorted frequency counts for thinking text
         reg_counts: Sorted frequency counts for regular text
-        cutoff_frac: Cutoff fraction for filtering low-frequency words (set to None to disable)
     """
-    print(f"\nDebug: Original thinking counts length: {len(think_counts)}")
-    print(f"Debug: Original regular counts length: {len(reg_counts)}")
+    print(f"\nDebug: Thinking counts length: {len(think_counts)}")
+    print(f"Debug: Regular counts length: {len(reg_counts)}")
     if len(think_counts) > 0:
         print(f"Debug: Thinking counts range: {think_counts[-1]} to {think_counts[0]}")
     if len(reg_counts) > 0:
         print(f"Debug: Regular counts range: {reg_counts[-1]} to {reg_counts[0]}")
 
-    # Apply cutoff if specified and both lists have data
-    if cutoff_frac and (think_counts or reg_counts):
-        # Get max frequency from whichever list is non-empty
-        if think_counts and reg_counts:
-            max_freq = max(think_counts[0], reg_counts[0])
-        elif think_counts:
-            max_freq = think_counts[0]
-        else:
-            max_freq = reg_counts[0]
-
-        cutoff_count = math.ceil(max_freq / cutoff_frac)
-
-        # Apply cutoff to each list independently
-        if think_counts:
-            think_cutoff = find_first_below(think_counts, cutoff_count)
-            think_counts = think_counts[:think_cutoff]
-        if reg_counts:
-            reg_cutoff = find_first_below(reg_counts, cutoff_count)
-            reg_counts = reg_counts[:reg_cutoff]
-
-        print(f"Debug: Cutoff count: {cutoff_count}")
-        print(f"Debug: After cutoff - thinking counts length: {len(think_counts)}")
-        print(f"Debug: After cutoff - regular counts length: {len(reg_counts)}")
-
-    # Calculate powerlaw coefficients
+    # Calculate powerlaw coefficients on FULL dataset
     k_think, alpha_think = fit_general_powerlaw(think_counts) if think_counts else (1.0, -1.0)
     k_reg, alpha_reg = fit_general_powerlaw(reg_counts) if reg_counts else (1.0, -1.0)
 

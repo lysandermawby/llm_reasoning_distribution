@@ -1,24 +1,25 @@
-#!/bin/zsh
+#!/bin/sh
 
 : << EOF
-Downloading and processing all data directores in the data_processing dir
+Downloading and processing all data directories in the data_processing dir
 Runs the download script followed by the process script
-By default, this also deletes the data downloaded while leaving the analysis as the script progresses to avoid using up too much disk space
-This script should be run after the setup.sh script 
+By default, this also deletes the data downloaded while leaving the analysis
+This script should be run after the setup.sh script
 EOF
 
-# defining colour variables
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m'
+# defining colour variables (POSIX-safe)
+RED="$(printf '\033[0;31m')"
+GREEN="$(printf '\033[0;32m')"
+NC="$(printf '\033[0m')"
 
 # defining script version
-VERSIon="0.1.0"
+VERSION="0.2.0"
 
-# saving the initial directory, to return the shell session to it after execution
+# saving the initial directory
 INITIAL_DIR="$(pwd)"
 
-trap "cd '$INITIAL_DIR'" EXIT INT TERM
+# return the user to the initial directory
+trap 'cd "$INITIAL_DIR"' EXIT INT TERM
 
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 DATA_PROCESSING_NAME="data_processing"
@@ -28,154 +29,145 @@ DOWNLOAD_SCRIPT_NAME="download_data.py"
 PROCESS_SCRIPT_NAME="process_data.py"
 
 NUMBER=""
-DELETE='false'
+DELETE=false
 
 show_help() {
-    echo "run.sh - Downloads, processes, and analyses all datasets specified in the $DATA_PROCESSING_NAME directory"
+    echo "run.sh - Downloads, processes, and analyses all datasets in $DATA_PROCESSING_NAME"
     echo ""
-    echo "Usage: run.sh <options>"
+    echo "Usage: run.sh [options]"
     echo ""
     echo "Options:"
-    echo "      -h|--help       Show this help message"
-    echo "      -v|--version    Show the script version"
-    echo "      -n|--number     The number of samples from each dataset to be downloaded"
-    echo "      -d|--delete     Delete downloaded data once processed to free up disk space"
+    echo "  -h, --help        Show this help message"
+    echo "  -v, --version     Show the script version"
+    echo "  -n, --number      Number of samples to download overriding script defaults"
+    echo "  -d, --delete      Delete downloaded data after processing"
     echo ""
-    echo "Note that without the -n argument, the number of samples is given by the default values in the download scripts $DOWNLOAD_SCRIPT_NAME"
 }
 
 parse_arguments() {
-    POSITIONAL_COUNT=1
-    while [ $# -gt 0 ]; do
-        case "$1" in 
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
             -h|--help)
-                show_help 2>&1
-                return 1
-                shift 2
+                show_help >&2
+                return 2
                 ;;
             -v|--version)
                 echo "Version: $VERSION"
-                return 1
-                shift 2
+                return 2
                 ;;
             -d|--delete)
-                DELETE='true'
-                shift 2
+                DELETE=true
+                shift
                 ;;
             -n|--number)
+                if [ -z "$2" ]; then
+                    echo "${RED}Error: -n requires an argument${NC}"
+                    return 1
+                fi
                 NUMBER="$2"
                 shift 2
                 ;;
             -*)
                 echo "${RED}Error: Unrecognised argument $1${NC}"
-                show_help 2>&1
+                show_help >&2
                 return 1
-                shift 2
                 ;;
             *)
-                POSITIONAL_COUNT=$((POSITIONAL_COUNT+1))
-                echo "${RED}Error: Positional argument found${NC}"
+                echo "${RED}Error: Positional arguments are not supported${NC}"
                 return 1
-                shift
                 ;;
         esac
     done
     return 0
 }
 
-# list all file names in a directory
-list_file_names() {
-    DIRECTORY="$1"
-    filename_arr=()
-    for file in "$data_dir"/*; do
-        if [ -f "$file" ]; then
-            filename=$(basename "$file")
-            filename_arr+=("$filename")
-        fi
-    done
+# check that required scripts exist in a directory
+check_required_files() {
+    dir="$1"
+    [ -f "$dir/$DOWNLOAD_SCRIPT_NAME" ] &&
+    [ -f "$dir/$PROCESS_SCRIPT_NAME" ]
 }
 
-# see whether the download and process scripts are in the directory
-files_in_arr() {
-    filename_arr=("$@")
-    if (( ${filename_arr[(Ie)$DOWNLOAD_SCRIPT_NAME]} )) && (( ${filename_arr[(Ie)$PROCESS_SCRIPT_NAME]} )); then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# deleting raw data
 delete_raw_data() {
     data_dir="$1"
-    data_name="$data_dir/data"
-    if [ -d "$data_name" ]; then
-        rm -rf "$data_name"
-        echo "${GREEN}Deleted raw data at $data_name${NC}"
+    data_path="$data_dir/data"
+
+    if [ -d "$data_path" ]; then
+        rm -rf "$data_path"
+        echo "${GREEN}Deleted raw data at $data_path${NC}"
     else
-        echo "${RED}Warning: No data directory $data_name found${NC}"
+        echo "${RED}Warning: No data directory $data_path found${NC}"
     fi
 }
 
-# main script logic
 main() {
-    # parse command line arguments
     parse_arguments "$@"
-    local ret="$?"
+    ret="$?"
 
-    # parse_arguments returns 0 for normal functioning, 2 if the script should not continue but there has been no error, and 1 if there has been an error
-    if [ $ret -eq 0 ]; then
-
-        # Check if the directory exists
-        if [ -d "$DATA_PROCESSING_DIR" ]; then
-            echo "Found data_processing directory"
-            echo "Searching for data to download, process, and analyse...\n"
-            
-            # running the download and processing scripts in the respective scripts
-            count=0
-            for data_dir in "$DATA_PROCESSING_DIR"/*; do # note that * in zsh will not match hidden files
-                if [ -d "$data_dir" ]; then
-                    echo "${GREEN}Found data directory: $data_dir${NC}"
-                    count=$((count + 1))
-                    # find all files in data_dir
-                    list_file_names "$data_dir"
-                    # echo ${filename_arr[@]}
-                    files_in_arr "${filename_arr[@]}"
-                    is_in_arr="$?"
-                    if [ $is_in_arr -eq 0 ]; then
-                        echo "Expected download and processing scripts were found in the ${basename data_dir} directory\n"
-                        download_script_path="$data_dir/$DOWNLOAD_SCRIPT_NAME"
-                        process_script_path="$data_dir/$PROCESS_SCRIPT_NAME"
-                        echo "Downloading the files..."
-                        if [ -n "$NUMBER" ]; then
-                            uv run python "$download_script_path" -n "$NUMBER"
-                        else
-                            uv run python "$download_script_path"  # Use default from download script
-                        fi
-                        echo "Processing the files..."
-                        uv run python "$process_script_path"
-                        echo ""
-                        echo "${GREEN}Success: Downloaded and processed the files${NC}"
-                        if [ "$DELETE" = 'true' ]; then
-                            delete_raw_data "$data_dir"
-                        fi
-                    else
-                        echo "${RED}Warning: Did not find appropriate scripts in $data_dir${NC}"
-                        echo "Did not find the download script $DOWNLOAD_SCRIPT_NAME and the process script $PROCESS_SCRIPT_NAME. Skipping the processing of directory $data_dir..."
-                    fi
-                else
-                    echo "Non-directory file found: $data_dir"
-                fi
-            done
-            
-            echo "${GREEN}Success: Data processing complete! Found a total of $count repositories to process. ${NC}"
-        else
-            echo "${RED}Warning: $DATA_PROCESSING_DIR does not exist${NC}"
-        fi
+    # 2 = clean exit (help/version)
+    if [ "$ret" -eq 2 ]; then
+        return 0
     fi
 
-    [[ $ret -eq 2 || $ret -eq 0 ]] || return 0
-    return 1
+    if [ "$ret" -ne 0 ]; then
+        return 1
+    fi
+
+    if [ ! -d "$DATA_PROCESSING_DIR" ]; then
+        echo "${RED}Warning: $DATA_PROCESSING_DIR does not exist${NC}"
+        return 1
+    fi
+
+    echo "Found data_processing directory"
+    echo "Searching for data to download and process..."
+    echo ""
+
+    count=0
+
+    for data_dir in "$DATA_PROCESSING_DIR"/*; do
+        [ -d "$data_dir" ] || continue
+
+        echo "${GREEN}Found data directory: $data_dir${NC}"
+        count=$((count + 1))
+
+        if check_required_files "$data_dir"; then
+            # Change to dataset directory before running scripts
+            cd "$data_dir" || {
+                echo "${RED}Error: Could not change to $data_dir${NC}"
+                continue
+            }
+
+            echo "Downloading files..."
+            if [ -n "$NUMBER" ]; then
+                uv run python "$DOWNLOAD_SCRIPT_NAME" -n "$NUMBER"
+            else
+                uv run python "$DOWNLOAD_SCRIPT_NAME"
+            fi
+
+            echo "Processing files..."
+            uv run python "$PROCESS_SCRIPT_NAME" -p -i
+
+            echo "${GREEN}Success: Downloaded and processed files${NC}"
+
+            if [ "$DELETE" = true ]; then
+                delete_raw_data "$data_dir"
+            fi
+
+            # Return to script directory
+            cd "$SCRIPT_DIR" || {
+                echo "${RED}Error: Could not return to script directory${NC}"
+                return 1
+            }
+        else
+            echo "${RED}Warning: Missing scripts in $data_dir${NC}"
+            echo "Expected $DOWNLOAD_SCRIPT_NAME and $PROCESS_SCRIPT_NAME"
+        fi
+
+        echo ""
+    done
+
+    echo "${GREEN}Success: Processed $count datasets${NC}"
+    return 0
 }
 
 main "$@"
